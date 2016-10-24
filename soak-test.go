@@ -33,7 +33,6 @@ func main() {
 	performPrechecks()
 
 	accessLog := getAccessLog()
-
 	replayAccessLogs(accessLog)
 }
 
@@ -45,36 +44,36 @@ func replayAccessLogs(accessLog []Request) {
 	}
 
 	for _, request := range accessLog {
-		fmt.Printf("%s\n", request)
 		url := "https://" + request.Source.APIBase + request.Source.Message
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			fmt.Println(err.Error())
+		if request.Source.Accept != "application/vnd.mendeley-community-document-list+json" {
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			req.Header.Add("Accept", request.Source.Accept)
+			req.Header.Add(devTokenHeader, os.Getenv("devToken"))
+			req.Header.Add(accessTokenHeader, os.Getenv("accessToken"))
+			response, err := httpClient.Do(req)
+			if err != nil {
+				fmt.Printf("%v\t%v\n", request.Source.Message, err.Error())
+			} else {
+				fmt.Printf("%v\t%v\n", response.StatusCode, request.Source.Message)
+			}
+			time.Sleep(8 * time.Second)
 		}
-		req.Header.Add("Accept", request.Source.Accept)
-		req.Header.Add(devTokenHeader, os.Getenv("devToken"))
-		req.Header.Add(accessTokenHeader, os.Getenv("accessToken"))
-		response, err := httpClient.Do(req)
-		if err != nil {
-			fmt.Println(err.Error())
-			responseErrors = append(responseErrors, ResponseError{request.Source.Message, 0, err.Error()})
-		} else if !isSuccessCode(response.StatusCode) {
-			responseErrors = append(responseErrors, ResponseError{request.Source.Message, response.StatusCode, "error"})
-		}
-		time.Sleep(1 * time.Second)
 	}
-
 	reportErrors(responseErrors)
 }
 
 func reportErrors(errors []ResponseError) {
+	fmt.Println("--------------- Error log ---------------")
 	for _, element := range errors {
 		fmt.Printf("%v\t%v\t%v\n", element.URL, element.StatusCode, element.Error)
 	}
 }
 
 func getAccessLog() []Request {
-	raw, err := ioutil.ReadFile("./test-access-logs.json")
+	raw, err := ioutil.ReadFile("./access-logs.json")
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
